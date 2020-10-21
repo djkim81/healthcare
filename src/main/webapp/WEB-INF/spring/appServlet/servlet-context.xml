@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans xmlns="http://www.springframework.org/schema/mvc"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:beans="http://www.springframework.org/schema/beans"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/mvc https://www.springframework.org/schema/mvc/spring-mvc.xsd
+		http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+	<!-- DispatcherServlet Context: defines this servlet's request-processing infrastructure -->
+	
+	<!-- Enables the Spring MVC @Controller programming model -->
+	<annotation-driven />
+
+	<!-- Handles HTTP GET requests for /resources/** by efficiently serving up static resources in the ${webappRoot}/resources directory -->
+	<resources mapping="/resources/**" location="/resources/" />
+
+	<!-- Resolves views selected for rendering by @Controllers to .jsp resources in the /WEB-INF/views directory -->
+	<beans:bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		<beans:property name="prefix" value="/WEB-INF/views/" />
+		<beans:property name="suffix" value=".jsp" />
+	</beans:bean>
+	
+	<context:component-scan base-package="com.skt.hrs" />
+	
+	
+	
+	<beans:bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
+	    <beans:property name="basenames" value="locale/messages"/><!-- classes 폴더 하위에 있는 경우 -->
+	    <beans:property name="defaultEncoding" value="UTF-8" />
+		<beans:property name="cacheSeconds" value="300" /><!-- properties 파일이 변경되었는지 확인하는 주기를 지정합니다. 300초 간격 -->
+	</beans:bean>    
+
+	<!-- <beans:bean id="localeResolver" class="org.springframework.web.servlet.i18n.SessionLocaleResolver">  -->
+	<beans:bean id="localeResolver" class="org.springframework.web.servlet.i18n.CookieLocaleResolver">
+		<beans:property name="defaultLocale" value="ko" />
+		<beans:property name="cookieName" value="language"/>   
+    	<beans:property name="cookieMaxAge" value="-1"/>
+    	<beans:property name="cookiePath" value="/"/>
+    	<beans:property name="cookieDomain" value=""/>
+	</beans:bean>
+	
+	<tx:annotation-driven transaction-manager="transactionManager" proxy-target-class="true" />
+	
+	<beans:bean id="loginInterceptor" class="com.skt.hrs.cmmn.interceptor.LoginInterceptor" />	<!-- SSO 로그인처리 -->
+	<beans:bean id="authInterceptor" class="com.skt.hrs.cmmn.interceptor.AuthInterceptor" />	<!-- 관리자 체크 -->
+	
+	<mvc:interceptors>		
+		<!-- 로그인처리 -->
+		<mvc:interceptor>
+			<mvc:mapping path="/**/*" />
+			<mvc:exclude-mapping path="/resources/**" />	<!-- 리소스 파일 제외 -->
+			<mvc:exclude-mapping path="/error/**" />		<!-- 에러페이지 제외 -->
+			<mvc:exclude-mapping path="/fileDownload" />	<!-- 다운로드 제외 -->
+			<mvc:exclude-mapping path="/testSSOLogin" />	<!-- 테스트 로그인처리 제외 -->
+			<mvc:exclude-mapping path="/testLogin" />
+			<beans:ref bean="loginInterceptor" />
+		</mvc:interceptor>
+		
+		<!-- 담당자권한체크 -->
+		<mvc:interceptor>
+			<mvc:mapping path="/confirm/**" /> 
+			<mvc:mapping path="/mssr/**" /> 
+			<mvc:mapping path="/charger/**" />
+			<mvc:mapping path="/resveMgmt/**" />
+			<mvc:mapping path="/cmmn/**" />		<!-- 공통코드관리, 휴일관리 -->
+			<mvc:exclude-mapping path="/resources/**" />	<!-- 리소스 파일 제외 -->
+			<mvc:exclude-mapping path="/error/**" />		<!-- 에러페이지 제외 -->
+			<mvc:exclude-mapping path="/fileDownload" />	<!-- 다운로드 제외 -->
+			<mvc:exclude-mapping path="/cmmn/codeList" />	<!-- 공통코드목록 제외 -->
+			<mvc:exclude-mapping path="/cmmn/selectRestDeList" />	<!-- 휴일목록 제외 -->			
+			<beans:ref bean="authInterceptor" />
+		</mvc:interceptor>
+		
+	</mvc:interceptors>
+
+	<beans:import resource="classpath:/config/spring/context-batch.xml"/>
+	
+</beans:beans>

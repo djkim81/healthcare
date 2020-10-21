@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="restdeMapper">
+
+    <sql id="COMMON_PAGING_HEADER">
+		SELECT @ROWNUM:= @ROWNUM +1 as NUM  ,R1.*, IFNULL(FOUND_ROWS(),0) as total_cnt FROM (
+	</sql>
+
+	<sql id="COMMON_PAGING_TAIL">
+		) R1 ,(SELECT @ROWNUM := #{startRow, jdbcType=INTEGER})TEMP
+		LIMIT #{rowPerPage, jdbcType=INTEGER} OFFSET #{startRow, jdbcType=INTEGER}
+	               
+	</sql>
+	
+     <!-- 휴일 리스트 조회-->
+	<select id="selectRestDeList" parameterType="map" resultType="hashmap">
+	  
+		<include refid="COMMON_PAGING_HEADER"/>
+			 SELECT RESTDE_NO
+					,RESTDE_DATE  
+					,RESTDE_TYPE  
+					,RESTDE_NAME  
+					,RESTDE_REMARK
+					,USED_YN      
+		    FROM RESTDE 
+			WHERE RESTDE_DATE BETWEEN #{fromDate} AND #{toDate}
+		    AND USED_YN = 'Y'      
+            GROUP BY RESTDE_NO  
+		<include refid="COMMON_PAGING_TAIL"/>
+		
+	</select>
+
+     <!-- 휴일 조회-->
+	<select id="selectRestDeItem" parameterType="map" resultType="hashmap">
+      	 SELECT RESTDE_NO
+					,RESTDE_DATE  
+					,RESTDE_TYPE  
+					,RESTDE_NAME  
+					,RESTDE_REMARK
+					,USED_YN      
+		    FROM RESTDE 
+			WHERE RESTDE_NO = #{restDeNo}      
+	 </select>    
+	<!-- 휴일 중복 체크  -->
+	
+	<select id="selectRestCheck" parameterType="map" resultType="hashmap">
+	  SELECT IFNULL(GROUP_CONCAT(DISTINCT R.STTUS_CODE ORDER BY R.STTUS_CODE SEPARATOR ',' ),'') AS REST_STATUS
+		       ,IFNULL( SUM(R.STS01_CNT),0) AS STS01_CNT
+		       ,( SELECT IFNULL(MAX(USED_YN),'N') FROM RESTDE WHERE RESTDE_DATE BETWEEN  #{startDate} AND  #{endDate}  AND USED_YN='Y') DUP_YN
+       FROM ( SELECT A.RESVE_DE
+                     , CASE B.STTUS_CODE WHEN 'STS03' THEN 'STS01'  ELSE B.STTUS_CODE END AS STTUS_CODE
+                     , CASE WHEN  B.STTUS_CODE IN ('STS01','STS03') THEN 1 ELSE  0 END AS STS01_CNT 
+                FROM  RESVE_STTUS A JOIN RESVE_HIST B 
+                                      ON A.RESVE_NO = B.RESVE_NO
+                                     AND A.RESVE_DE  BETWEEN  #{startDate} AND  #{endDate} 
+                                     AND A.CANCL_YN ='N'
+                                     AND A.COMPT_YN ='N'
+                                     AND B.REG_DT = (SELECT MAX(AA.REG_DT) 
+                                                       FROM  RESVE_HIST AA 
+                                                      WHERE AA.RESVE_NO  = A.RESVE_NO )
+                               WHERE B.STTUS_CODE IN ('STS00','STS01','STS03')
+                          ) R 
+	</select>
+     <!-- 휴일 등록 -->
+     <insert id="insertRestDe"  useGeneratedKeys="true" keyProperty="RESTDE_NO"  parameterType="map" >     
+      INSERT INTO RESTDE ( RESTDE_DATE, RESTDE_NAME, REG_EMPNO, REG_DT ) 
+                          VALUES (#{restDeDate}, #{restDeName}, #{regEmpno},now())    
+          <!--   VALUES (#{restDeDate}, #{restDeType}, #{restDeName}, #{restDeRemark}, #{regEmpno}, #{regDt}, #{usedYn})    -->
+     </insert>
+	<!-- 휴일 수정 -->
+	<update id="updateRestDe">
+		UPDATE RESTDE
+		   SET   RESTDE_NAME = #{restDeName}
+		   
+		     <!-- RESTDE_DATE = #{restDeDate} -->
+			 <!-- , RESTDE_TYPE = #{restDeType} -->
+			 <!-- , RESTDE_REMARK =#{restDeRemark} -->
+			 , UPDT_EMPNO = #{regEmpNo}
+			 , UPDT_DT =  now()
+		 WHERE RESTDE_NO = #{restDeNo}
+	</update>
+	
+	<!-- 휴일 삭제 -->
+	<update id="deleteRestDe">
+		UPDATE RESTDE
+		   SET USED_YN = #{usedYn}
+			 , UPDT_EMPNO = #{regEmpNo}
+			 , UPDT_DT =   now(6)
+		 WHERE RESTDE_NO = #{restDeNo}
+	</update>
+	
+	<delete id="deleteResve">
+	    	<choose>
+					<when test='delType=="sttus"'>
+						 DELETE  FROM  RESVE_STTUS  WHERE RESVE_DE = #{RESVE_DE} AND  RESVE_NO = #{RESVE_NO}
+					</when>
+					<when test='delType=="hist"'>
+					    DELETE  FROM  RESVE_HIST   WHERE RESVE_NO = #{RESVE_NO}
+					</when>
+				      
+				</choose> 
+	</delete>
+   	<select id="selectRestReveList" parameterType="map" resultType="hashmap">
+	
+      SELECT  R.RESVE_DE 
+      , R.STTUS_CODE 
+      , R.RESVE_NO 
+      , IFNULL(R.RESVE_EMPNO,'') AS RESVE_EMPNO
+      , IFNULL( R.WAIT_EMPNO,'') AS WAIT_EMPNO
+     FROM  ( SELECT A.RESVE_NO
+                               , A.RESVE_DE
+                               , B.STTUS_CODE AS STTUS_CODE
+                               , A.RESVE_EMPNO
+                               , A.WAIT_EMPNO
+                              FROM  RESVE_STTUS A   JOIN RESVE_HIST B 
+                                ON A.RESVE_NO = B.RESVE_NO
+                                AND A.CANCL_YN ='N'
+                                AND A.COMPT_YN ='N'
+                                AND B.REG_DT = (SELECT MAX(AA.REG_DT) 
+                                                 FROM  RESVE_HIST AA 
+                                                WHERE AA.RESVE_NO  = A.RESVE_NO )
+                            WHERE A.RESVE_DE BETWEEN #{startDate} AND  #{endDate}   
+                          ) R  
+          <![CDATA[ 
+            WHERE R.STTUS_CODE < 'STS05'
+           ]]>
+         ORDER BY  R.STTUS_CODE
+
+	 </select>
+</mapper>

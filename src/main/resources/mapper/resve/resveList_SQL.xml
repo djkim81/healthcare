@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="resveListMapper">
+
+
+	<!-- 페이징 처리를 위한 HEADER -->
+	<sql id="COMMON_PAGING_HEADER">
+		SELECT R1.* FROM (
+	</sql>
+	
+	
+	<!-- 페이징 처리를 위한 TAIL -->
+	<sql id="COMMON_PAGING_TAIL">
+		) R1 ORDER BY RESVE_DE DESC, REQ_DT DESC
+		LIMIT #{rowPerPage, jdbcType=INTEGER} OFFSET #{startRow, jdbcType=INTEGER}
+	</sql>
+
+
+	<!-- 예약리스트 조회 -->
+	<select id="selectResveList" parameterType="map" resultType="hashmap">
+		<include refid="COMMON_PAGING_HEADER"/>
+		SELECT
+			A.RESVE_NO,
+			A.RESVE_DE,
+			A.RESVE_TM,
+			A.BLD_CODE,
+			A.MSSR_EMPNO,
+			A.BED_CODE,
+			A.RESVE_EMPNO,
+			A.WAIT_EMPNO,
+			A.REG_EMPNO,			
+			A.UPDT_EMPNO,
+			A.UPDT_DT,					
+			(SELECT CODE_NM FROM CMMN_CODE WHERE CODE = A.RESVE_TM) AS RESVE_TM_TXT,
+			(SELECT CODE_NM FROM CMMN_CODE WHERE CODE = A.BLD_CODE) AS BLD_NM,
+			(SELECT NCNM FROM MASSEUR WHERE EMPNO = A.MSSR_EMPNO) AS MSSR_NCNM,
+			(SELECT SEXDSTN FROM MASSEUR WHERE EMPNO = A.MSSR_EMPNO) AS MSSR_SEXDSTN,
+			(SELECT CODE_NM FROM CMMN_CODE WHERE CODE = A.BED_CODE AND CODE_TYS = A.BLD_CODE) AS BED_NM,			
+			B.LAST_STTUS_CODE,
+			B.REG_DT,	
+			B.REQ_DT,
+			(SELECT CODE_NM FROM CMMN_CODE WHERE CODE = B.LAST_STTUS_CODE) AS STTUS_NM,
+			DATE_FORMAT(B.REG_DT, '%Y-%m-%d') AS REG_DT_TXT,
+    		DATE_FORMAT(B.REQ_DT, '%Y-%m-%d') AS REQ_DT_TXT
+		FROM resve_sttus A
+		INNER JOIN (			
+			SELECT T1.RESVE_NO, T1.STTUS_CODE AS LAST_STTUS_CODE, T1.REG_DT,
+				<!-- 신청일시 -->
+				CASE
+					<!-- 예약완료 = 나의 마지막 예약일시 -->
+					WHEN T1.STTUS_CODE = 'STS01' THEN T1.REG_DT	
+					<!-- 예약취소 = 나의 마지막 예약일시 -->
+					WHEN T1.STTUS_CODE = 'STS02' THEN (SELECT MAX(REG_DT) FROM RESVE_HIST WHERE RESVE_NO=T1.RESVE_NO AND STTUS_CODE='STS01' AND TARGET_EMPNO=#{empNo})
+					<!-- 대기중	 = 나의 마지막 대기일시 -->
+					WHEN T1.STTUS_CODE = 'STS03' THEN T1.REG_DT	
+					<!-- 대기취소 = 나의 마지막 대기일시 -->
+					WHEN T1.STTUS_CODE = 'STS04' THEN (SELECT MAX(REG_DT) FROM RESVE_HIST WHERE RESVE_NO=T1.RESVE_NO AND STTUS_CODE='STS03' AND TARGET_EMPNO=#{empNo})
+					<!-- 케어완료 = 나의 마지막 예약일시 -->
+					WHEN T1.STTUS_CODE = 'STS05' THEN (SELECT MAX(REG_DT) FROM RESVE_HIST WHERE RESVE_NO=T1.RESVE_NO AND STTUS_CODE='STS01' AND TARGET_EMPNO=#{empNo})
+					<!-- No-Show = 나의 마지막 예약일시 -->
+					WHEN T1.STTUS_CODE = 'STS06' THEN (SELECT MAX(REG_DT) FROM RESVE_HIST WHERE RESVE_NO=T1.RESVE_NO AND STTUS_CODE='STS01' AND TARGET_EMPNO=#{empNo})
+					<!-- No-Show(패널티없음) = 나의 마지막 예약일시 -->
+					WHEN T1.STTUS_CODE = 'STS07' THEN (SELECT MAX(REG_DT) FROM RESVE_HIST WHERE RESVE_NO=T1.RESVE_NO AND STTUS_CODE='STS01' AND TARGET_EMPNO=#{empNo})
+					<!-- 근무취소 = 예약, 대기 중 최근일시 -->
+					WHEN T1.STTUS_CODE = 'STS99' THEN (SELECT MAX(REG_DT) FROM RESVE_HIST WHERE RESVE_NO=T1.RESVE_NO AND STTUS_CODE in ('STS01','STS03') AND TARGET_EMPNO=#{empNo})
+				ELSE NULL 
+				END AS REQ_DT 
+			FROM RESVE_HIST T1
+			INNER JOIN (
+				SELECT RESVE_NO, MAX(REG_DT) AS REG_DT
+				FROM (
+					SELECT A.*
+					FROM RESVE_HIST A
+					INNER JOIN (
+						SELECT RESVE_NO
+						FROM RESVE_HIST
+						WHERE TARGET_EMPNO = #{empNo}
+						GROUP BY RESVE_NO
+					) B	<!-- 나랑관련된 예약 -->
+					ON A.RESVE_NO = B.RESVE_NO
+		            WHERE (TARGET_EMPNO = #{empNo} OR STTUS_CODE = 'STS99')	<!-- 나의ACTION이거나 근무취소 -->
+				) T 		        
+				GROUP BY RESVE_NO
+			) T2
+			ON T1.RESVE_NO = T2.RESVE_NO
+			AND T1.REG_DT = T2.REG_DT		
+		) B
+		ON A.RESVE_NO = B.RESVE_NO
+		WHERE 1=1
+			AND RESVE_DE BETWEEN #{fromDate} AND #{toDate}
+			<if test='statusCode != null and statusCode != ""'>
+			AND LAST_STTUS_CODE = #{statusCode}
+			</if>
+		ORDER BY A.RESVE_DE DESC,B.REG_DT DESC
+		<include refid="COMMON_PAGING_TAIL"/>
+	</select>
+	
+	
+	<!-- 예약리스트 전체 ROW COUNT 값 조회 -->
+	<select id="selectResveListTotalCount" parameterType="map" resultType="int">
+		SELECT
+			COUNT(*)
+		FROM resve_sttus A
+		INNER JOIN (
+			SELECT T1.RESVE_NO, T1.STTUS_CODE AS LAST_STTUS_CODE
+			FROM RESVE_HIST T1
+			INNER JOIN (
+				SELECT RESVE_NO, MAX(REG_DT) AS REG_DT
+				FROM (
+					SELECT A.*
+					FROM RESVE_HIST A
+					INNER JOIN (
+						SELECT RESVE_NO
+						FROM RESVE_HIST
+						WHERE TARGET_EMPNO = #{empNo}
+						GROUP BY RESVE_NO
+					) B
+					ON A.RESVE_NO = B.RESVE_NO
+		            WHERE (TARGET_EMPNO = #{empNo} OR STTUS_CODE = 'STS99')
+				) T 		        
+				GROUP BY RESVE_NO
+			) T2
+			ON T1.RESVE_NO = T2.RESVE_NO
+			AND T1.REG_DT = T2.REG_DT		
+		) B
+		ON A.RESVE_NO = B.RESVE_NO
+		WHERE 1=1
+		AND RESVE_DE BETWEEN #{fromDate} AND #{toDate}
+		<if test='statusCode != null and statusCode != ""'>
+		AND LAST_STTUS_CODE = #{statusCode}
+		</if>
+	</select>
+	
+	<!-- 예약 상세현황 조회 -->
+	<select id="selectResveDetailList" parameterType="map" resultType="hashmap">		
+		SELECT RESVE_NO,
+			STTUS_CODE_NM,
+		    DATE_FORMAT(T.REG_DT, '%Y-%m-%d %H:%i') AS REG_DT_STR,		   
+			CASE					
+		        WHEN REG_EMPNO != #{empno} AND ADM_EMPNO IS NOT NULL AND ADM_AUTH_CODE != 'AUT03' THEN '관리자'
+		        WHEN REG_EMPNO = 'SYSTEM' THEN '시스템'
+		        WHEN REG_EMPNO = 'WAITCNCL' THEN '시스템'
+				ELSE HNAME
+			END AS REG_EMPNM,
+			STTUS_CODE,
+			REG_EMPNO
+		FROM (
+			SELECT HIST.RESVE_NO,
+				STTUS_CODE,
+				(SELECT CODE_NM FROM CMMN_CODE WHERE CODE_TYL='STS' AND CODE=HIST.STTUS_CODE) AS STTUS_CODE_NM,
+				HIST.REG_EMPNO,
+				HIST.REG_DT,		
+				PRSN.HNAME,
+				ADM.EMPNO AS ADM_EMPNO,
+				ADM.AUTH_CODE AS ADM_AUTH_CODE
+			FROM RESVE_HIST HIST
+			LEFT JOIN inf_person_info_rcv PRSN
+			ON HIST.REG_EMPNO = PRSN.EMPNO
+			LEFT JOIN CHARGER ADM
+			ON HIST.REG_EMPNO = ADM.EMPNO
+			WHERE RESVE_NO = #{resveNo}
+			AND (TARGET_EMPNO = #{empno} OR STTUS_CODE='STS99') <!-- 나의 예약/대기 거나, 근무취소만 조회 -->			 		  
+		) T
+		ORDER BY REG_DT DESC	<!-- 최신순 -->
+	</select>
+	
+</mapper>

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="mssrblacklistMapper">
+
+
+	<!-- 페이징 처리를 위한 HEADER -->
+	<sql id="COMMON_PAGING_HEADER">
+		SELECT R1.* FROM (
+	</sql>
+	
+	
+	<!-- 페이징 처리를 위한 TAIL -->
+	<sql id="COMMON_PAGING_TAIL">
+		) R1 ORDER BY NO DESC
+		LIMIT #{rowPerPage, jdbcType=INTEGER} OFFSET #{startRow, jdbcType=INTEGER}
+	</sql>
+
+	
+	<!-- NO-SHOW(블랙리스트) 리스트 조회 -->
+	<select id="selectMssrblacklistList" parameterType="map" resultType="hashmap">
+		<include refid="COMMON_PAGING_HEADER"/>
+		SELECT NO,
+			GROUP_CONCAT(LIST.RESVE_NO SEPARATOR '|') AS RESVE_NO,
+		    LIST.RESVE_EMPNO,
+		    LIST.HNAME AS USER_NAME,
+		    LIST.DEPTNM AS USER_DEPT,
+		    DATE_FORMAT(MIN(LIST.START_DT), '%Y-%m-%d ') AS START_DT,
+			DATE_FORMAT(MAX(LIST.END_DT), '%Y-%m-%d ') AS END_DT,
+		    GROUP_CONCAT((SELECT CODE_NM FROM CMMN_CODE WHERE LIST.BLD_CODE=CODE AND CODE_TYL='BLD' AND DEL_YN='N') SEPARATOR '|') AS BLD_CODE,
+            GROUP_CONCAT(CONCAT_WS(', ',LIST.RESVE_DE,(SELECT CODE_NM FROM CMMN_CODE WHERE LIST.RESVE_TM=CODE AND CODE_TYL='RVT' AND DEL_YN='N'),LIST.BED_CODE) SEPARATOR '|') AS SUMMARY
+		FROM 
+		(
+		    SELECT A.*, B.RESVE_DE, B.RESVE_TM, B.BLD_CODE, B.BED_CODE, C.HNAME, C.DEPTNM
+		    FROM RESVE_BLCLST A LEFT JOIN RESVE_STTUS B ON A.RESVE_NO=B.RESVE_NO
+            LEFT JOIN INF_PERSON_INFO_RCV C ON A.RESVE_EMPNO=C.EMPNO
+		) LIST 
+        WHERE 1=1
+			<if test='bldCode != null and bldCode != ""'>
+			AND LIST.BLD_CODE = #{bldCode}
+			</if>
+			<if test='userName != null and userName != ""'>
+			AND LIST.HNAME LIKE CONCAT('%',#{userName}, '%')
+			</if>
+        GROUP BY RESVE_EMPNO
+		<include refid="COMMON_PAGING_TAIL"/>
+	</select>
+	
+	<!-- 노쇼 카운트 -->
+	<select id="selectMssrblacklistListCount" parameterType="map" resultType="int">
+		SELECT COUNT(*)
+		FROM (
+			SELECT
+				GROUP_CONCAT(LIST.RESVE_NO SEPARATOR '|') AS RESVE_NO,
+			    LIST.RESVE_EMPNO,
+			    LIST.HNAME AS USER_NAME,
+			    LIST.DEPTNM AS USER_DEPT,
+			    DATE_FORMAT(MIN(LIST.START_DT), '%Y-%m-%d ') AS START_DT,
+				DATE_FORMAT(MAX(LIST.END_DT), '%Y-%m-%d ') AS END_DT,
+			    GROUP_CONCAT((SELECT CODE_NM FROM CMMN_CODE WHERE LIST.BLD_CODE=CODE AND CODE_TYL='BLD' AND DEL_YN='N') SEPARATOR '|') AS BLD_CODE,
+	            GROUP_CONCAT(CONCAT_WS(', ',LIST.RESVE_DE,(SELECT CODE_NM FROM CMMN_CODE WHERE LIST.RESVE_TM=CODE AND CODE_TYL='RVT' AND DEL_YN='N'),LIST.BED_CODE) SEPARATOR '|') AS SUMMARY
+			FROM 
+			(
+			    SELECT A.*, B.RESVE_DE, B.RESVE_TM, B.BLD_CODE, B.BED_CODE, C.HNAME, C.DEPTNM
+			    FROM RESVE_BLCLST A LEFT JOIN RESVE_STTUS B ON A.RESVE_NO=B.RESVE_NO
+	            LEFT JOIN INF_PERSON_INFO_RCV C ON A.RESVE_EMPNO=C.EMPNO
+			) LIST 
+	        WHERE 1=1
+				<if test='bldCode != null and bldCode != ""'>
+				AND LIST.BLD_CODE = #{bldCode}
+				</if>
+				<if test='userName != null and userName != ""'>
+				AND LIST.HNAME LIKE CONCAT('%',#{userName}, '%')
+				</if>
+	        GROUP BY RESVE_EMPNO
+		) TBL
+	</select>
+
+	<!-- No-show(블랙리스트) No-Show 상태로 2주 패널티만 제외 -->
+	<delete id="mssrblacklistnoshowDelete" parameterType="map">
+        DELETE FROM RESVE_BLCLST WHERE RESVE_NO = #{resveNo}	
+     </delete>
+     
+     <!-- No-show(블랙리스트) No-Show 상태로 케어완료 상태로 변경 -->
+	<update id="mssrblacklistcomptUpdate" parameterType="map">     
+       	UPDATE RESVE_STTUS SET COMPT_YN='Y' WHERE RESVE_NO = #{resveNo}	 
+     </update>
+     
+     <insert id="mssrblacklisthistInsert" parameterType="map" >     
+       	INSERT INTO resve_hist (RESVE_NO, STTUS_CODE, REG_EMPNO, REG_DT, TARGET_EMPNO)
+		VALUES (#{resveNo},'STS05',#{regEmpNo},now(6),#{resveEmpno})		 
+     </insert>
+     
+     
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

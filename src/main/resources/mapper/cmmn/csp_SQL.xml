@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cmmnCspMapper">
+
+
+	<insert id="insertCspSend" parameterType="com.skt.hrs.cmmn.vo.CspVo">
+		INSERT INTO CSP_SEND_HIST(
+			SEND_EMPNO, RCV_EMPNO, CSP_TYPE, RESVE_NO, MSSG_HEAD, MSSG_BODY, SEND_YN, REG_DT
+		) 
+		VALUES(
+			#{sendEmpno}, #{rcvEmpno}, #{cspType}, #{resveNo}, #{mssgHead}, #{mssgBody}, 'N', NOW()
+		)
+	</insert>
+	
+	<select id="selectCspSendList"  parameterType="map" resultType="hashmap">
+		<![CDATA[
+			SELECT 
+			     NO
+			    ,SEND_EMPNO
+			   	,S.EMAIL SEND_EMAIL
+				,RCV_EMPNO
+				,CSP_TYPE
+				,RESVE_NO
+				,MSSG_HEAD
+				,MSSG_BODY
+				,SEND_YN
+				,SEND_DT
+				,SEND_RSLT
+				,REG_DT
+			    ,REPLACE(U.MOVETELNO,'-','') AS MOVETELNO
+			    ,U.EMAIL AS RCV_EMAIL
+			FROM CSP_SEND_HIST C LEFT JOIN INF_PERSON_INFO_RCV U ON C.RCV_EMPNO = U.EMPNO
+				 LEFT JOIN INF_PERSON_INFO_RCV S ON C.SEND_EMPNO = S.EMPNO
+			WHERE 1=1
+			AND SEND_YN = 'N' 
+			AND RETRY_CNT < 3
+		]]>
+	</select>
+	
+	<update id="updateCspSendLog" parameterType="com.skt.hrs.cmmn.vo.CspVo">
+		UPDATE CSP_SEND_HIST A
+			SET   
+				<choose>
+					<when test='sendRslt == "S"'>
+						 SEND_YN = 'Y'
+			    		,SEND_DT = NOW()
+			    		,SEND_RSLT = #{sendRslt}
+					</when>
+					<otherwise>
+						SEND_RSLT = #{sendRslt}
+					   ,RETRY_CNT = A.RETRY_CNT +1
+					</otherwise>
+				</choose>
+			WHERE 1=1
+			AND NO = #{no}
+	</update>
+</mapper>

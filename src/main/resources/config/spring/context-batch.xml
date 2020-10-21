@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:batch="http://www.springframework.org/schema/batch" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/batch
+		http://www.springframework.org/schema/batch/spring-batch.xsd
+		http://www.springframework.org/schema/beans 
+		http://www.springframework.org/schema/beans/spring-beans.xsd">
+		
+		
+	<!--
+		JOB Bean 	
+	-->	
+	<bean id="blacklistFilterJob" class="com.skt.hrs.batch.BlacklistFilterJob"/> <!-- 블랙리스트 필터링 JOB -->
+	<bean id="cspSendJob" class="com.skt.hrs.batch.CspSendJob"/> <!-- CSP 연동 SMS/쪽지/Mail JOB -->
+	<bean id="resveNotifyJob" class="com.skt.hrs.batch.ResveNotifyJob"/>	<!-- 케어 30분전 알림 JOB -->
+	<bean id="scheduleSendJob" class="com.skt.hrs.batch.ScheduleSendJob"/> <!-- 아웃룩 일정 연동 JOB -->
+	 
+	<!--
+		JOB Detail 	
+	-->	
+	<bean id="jobBlacklistFilterDetail" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean"> <!-- 블랙리스트 필터링 JOB -->
+	    <property name="targetObject" ref="blacklistFilterJob"/>
+	    <property name="targetMethod" value="execute"/>
+	    <property name="concurrent" value="false"/>
+    </bean>	
+    <bean id="jobCspSendDetail" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean"> <!-- CSP 연동 SMS/쪽지/Mail JOB -->
+	    <property name="targetObject" ref="cspSendJob"/>
+	    <property name="targetMethod" value="execute"/>
+	    <property name="concurrent" value="false"/>
+    </bean>
+    <bean id="jobResveNotifyDetail" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean"> <!-- 케어 30분전 알림 JOB -->
+	    <property name="targetObject" ref="resveNotifyJob"/>
+	    <property name="targetMethod" value="execute"/>
+	    <property name="concurrent" value="false"/>
+    </bean>
+     <bean id="jobScheduleSendDetail" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean"> <!-- 아웃룩 일정 연동 JOB -->
+	    <property name="targetObject" ref="scheduleSendJob"/>
+	    <property name="targetMethod" value="execute"/>
+	    <property name="concurrent" value="false"/>
+    </bean>
+    
+    <!--
+		JOB Trigger 	
+	-->
+    <bean id="blacklistFilterTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean"> <!-- 블랙리스트 필터 JOB -->
+	    <property name="jobDetail" ref="jobBlacklistFilterDetail"/>
+		<property name="cronExpression" value="0 1 0 * * ?" /> <!-- 매일 0시1분 -->
+	</bean>
+	<bean id="cspSendTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean"> <!-- CSP 연동 SMS/쪽지/Mail JOB -->
+	    <property name="jobDetail" ref="jobCspSendDetail" />
+	    <property name="startDelay" value="3000" />
+	    <property name="repeatInterval" value="60000"></property>
+	</bean>	
+	<bean id="resveNotifyTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">  <!-- 케어 30분전 알림 JOB -->
+	    <property name="jobDetail" ref="jobResveNotifyDetail" />	    
+	    <property name="cronExpression" value="0 30 8-17 ? * MON-FRI" /> <!-- 월~금 08:30 ~ 17:30 -->	    
+	</bean>	
+	<bean id="scheduleSendTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean"> <!-- CSP 연동 SMS/쪽지/Mail JOB -->
+	    <property name="jobDetail" ref="jobScheduleSendDetail" />
+	    <property name="startDelay" value="3000" />
+	    <property name="repeatInterval" value="60000"></property>
+	</bean>	
+	
+	<!--
+		JOB Scheduler 	
+	-->
+	<bean id="jobScheduler" class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+	    <property name="triggers">
+	        <list>
+	        	
+	        	<ref bean="blacklistFilterTrigger" />
+	        	<ref bean="cspSendTrigger" />
+	        	<ref bean="resveNotifyTrigger" /> 
+	        	<ref bean="scheduleSendTrigger" />
+	        	
+	        </list>
+	    </property>
+	    <property name="quartzProperties">
+	    	<props>
+	    		<prop key="org.quartz.scheduler.instanceName">fsbu_scheduler</prop>
+           		<prop key="org.quartz.scheduler.instanceId">AUTO</prop>
+	    	</props>
+	    </property>
+	</bean>
+
+</beans>		

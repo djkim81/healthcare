@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cmmnCodeMapper">
+
+	<select id="selectCodeList" parameterType="map" resultType="hashmap">
+		<if test="codeTyl =='RVT'">
+			SELECT  CODE_TYL_NM,
+					CODE,
+			 		CASE #{codeTys} WHEN 'RVTSTART' THEN LEFT(CODE_NM,5) ELSE RIGHT(CODE_NM,5) END AS CODE_NM
+			  FROM CMMN_CODE 
+			 WHERE CODE_TYL = 'RVT'
+		</if>
+		<if test="codeTyl !='RVT'">
+			SELECT * FROM CMMN_CODE 
+			 WHERE CODE_TYL = #{codeTyl}
+			<if test="codeTys != null and codeTys != ''">
+			   AND CODE_TYS=#{codeTys}
+			</if>
+		</if>
+			   AND DEL_YN = 'N'
+	</select>
+	
+	<select id="selectAllCodeList" parameterType="map" resultType="hashmap">
+	SELECT * 
+	  FROM CMMN_CODE
+	 WHERE DEL_YN = 'N'
+	</select>
+	
+	<!-- 페이징 처리를 위한 HEADER -->
+	<sql id="COMMON_PAGING_HEADER">
+		SELECT R1.* 
+		  FROM (
+	</sql>
+	
+	<!-- 페이징 처리를 위한 TAIL -->
+	<sql id="COMMON_PAGING_TAIL">
+				) R1
+		LIMIT #{rowPerPage, jdbcType=INTEGER} OFFSET #{startRow, jdbcType=INTEGER}
+	</sql>
+	
+	<!-- 코드 종류별 조회 - COMBOBOX 사용-->
+	<select id="selectCodeKindList" parameterType="map" resultType="hashmap">
+		SELECT 
+		<choose>
+		  	<when test='codeType == "TYS"'>
+		  	   CODE_TYS AS CODE
+			 , CODE_TYS_NM AS CODE_NM
+		  	</when>
+		  	<when test='codeType == "CODE"'>
+		  	   CODE AS CODE
+			 , CODE_NM AS CODE_NM
+		  	</when>
+		  	<otherwise><!-- TYL -->
+		  	   CODE_TYL AS CODE
+			 , CODE_TYL_NM AS CODE_NM
+		  	</otherwise>
+		</choose>
+			 , CODE_DC
+		  	 , CODE_ORDR
+		  FROM CMMN_CODE
+		 WHERE 1=1
+		   AND DEL_YN = 'N'
+	  	<if test='codeType == "TYS"'>
+		   AND CODE_TYS <![CDATA[<>]]> ''
+		   AND CODE_TYL = 'BED'
+	  	</if>
+	  	<if test='codeType == "CODE"'>
+		   AND CODE_TYL = #{codeTyl}
+   			<if test='codeTys != null and codeTys != ""'>
+		   AND CODE_TYS = #{codeTys}
+   			</if>
+	  	</if>
+	 	<trim prefix="GROUP BY">
+		  	<if test='codeType == "TYL"'>
+		  		  CODE_TYL, CODE_TYL_NM
+		  	</if>
+		  	<if test='codeType == "TYS"'>
+		 		  CODE_TYS, CODE_TYS_NM
+		  	</if>
+		</trim>
+		 ORDER BY 
+		<choose>
+		  	<when test="codeType == 'TYL'">
+		 		  CASE WHEN CODE_TYL = 'AUT' THEN 1
+					   WHEN CODE_TYL = 'BLD' THEN 2
+					   WHEN CODE_TYL = 'STS' THEN 3
+					   WHEN CODE_TYL = 'RVT' THEN 4
+					   WHEN CODE_TYL = 'BED' THEN 5
+				   END
+		  	</when>
+		  	<when test="codeType == 'TYS'">
+		  		  CODE_TYS, CODE_ORDR
+		  	</when>
+		  	<otherwise><!-- TYL -->
+		  		  CODE_ORDR
+		  	</otherwise>
+		</choose>
+	</select>
+	
+	<!-- 코드 리스트 조회 -->
+	<select id="selectCodeManageList" parameterType="map" resultType="hashmap">
+		<include refid="COMMON_PAGING_HEADER"/>
+		SELECT CODE_TYL
+			 , CODE_TYL_NM
+			 , IFNULL(CODE_TYS, '') AS CODE_TYS 
+			 , IFNULL(CODE_TYS_NM, '') AS CODE_TYS_NM
+			 , IFNULL(CODE, '') AS CODE
+			 , IFNULL(CODE_NM, '') AS CODE_NM
+			 , CODE_DC
+			 , CODE_ORDR
+			 , IFNULL(REG_EMPNO, '') AS REG_EMPNO
+			 , DATE_FORMAT(REG_DT, '%Y-%m-%d') AS REG_DT
+			 , IFNULL(UPDT_EMPNO, '') AS UPDT_EMPNO
+			 , DATE_FORMAT(IFNULL(UPDT_DT, ''), '%Y-%m-%d') AS UPDT_DT
+			 , CASE WHEN UPDT_DT IS NULL THEN REG_DT
+					ELSE UPDT_DT 
+				END AS MOD_DT
+			 , (SELECT COUNT(*) 
+				  FROM CMMN_CODE) AS totalCnt
+		  FROM CMMN_CODE
+		 WHERE 1 = 1
+		   AND DEL_YN = 'N'
+		<if test='codeType != null and codeType != ""'>
+		   AND CODE_TYL = #{codeType}
+		</if>
+		<if test='codeTys != null and codeTys != ""'>
+		   AND CODE_TYS = #{codeTys}
+		</if>
+		 ORDER BY CASE WHEN CODE_TYL = 'AUT' THEN 1
+					   WHEN CODE_TYL = 'BLD' THEN 2
+					   WHEN CODE_TYL = 'STS' THEN 3
+					   WHEN CODE_TYL = 'RVT' THEN 4
+					   WHEN CODE_TYL = 'BED' THEN 5
+				   END
+				, CODE_ORDR
+		<include refid="COMMON_PAGING_TAIL"/>
+	</select>
+	
+	<!-- 코드 리스트 전체 ROW COUNT 값 조회 -->
+	<select id="selectCodeManageListTotalCount" parameterType="map" resultType="int">
+		SELECT count(*) 
+		  FROM (
+				SELECT CODE_TYL
+					 , CODE_TYS
+					 , CODE
+					 , CODE_TYL_NM
+					 , CODE_TYS_NM
+					 , CODE_NM
+					 , CODE_DC
+					 , CODE_ORDR
+					 , REG_EMPNO
+					 , REG_DT
+					 , UPDT_EMPNO
+					 , UPDT_DT
+					 , CASE WHEN UPDT_DT IS NULL THEN REG_DT
+							ELSE UPDT_DT 
+						END AS MOD_DT
+					 , (SELECT COUNT(*) 
+						  FROM CMMN_CODE) AS totalCnt
+				  FROM CMMN_CODE
+				 WHERE 1 = 1
+				   AND DEL_YN = 'N'
+		<if test='codeType != null and codeType != ""'>
+				   AND CODE_TYL = #{codeType}
+		</if>
+		<if test='codeTys != null and codeTys != ""'>
+				   AND CODE_TYS = #{codeTys}
+		</if>
+				 ORDER BY CASE WHEN CODE_TYL = 'AUT' THEN 1
+							   WHEN CODE_TYL = 'BLD' THEN 2
+							   WHEN CODE_TYL = 'STS' THEN 3
+							   WHEN CODE_TYL = 'RVT' THEN 4
+							   WHEN CODE_TYL = 'BED' THEN 5
+						   END
+						, CODE_ORDR
+				) C
+	</select>
+	
+	<!-- 코드 등록 -->
+	<insert id="insertCodeManage" parameterType="map">
+		<selectKey keyProperty="codeOrdr"  resultType="int" order="BEFORE">
+			SELECT IFNULL(MAX(CODE_ORDR), 0) + 1 AS codeOrdr
+		 	  FROM CMMN_CODE
+		 	 WHERE 1=1
+		 	   AND CODE_TYL = #{codeTyl}
+		 	   AND CODE_TYS = #{codeTys}
+		</selectKey>
+		INSERT INTO CMMN_CODE (
+			   CODE_TYL
+			 , CODE_TYS
+			 , CODE
+			 , CODE_TYL_NM
+			 , CODE_TYS_NM
+			 , CODE_NM
+			 , CODE_DC
+			 , CODE_ORDR
+			 , REG_EMPNO
+			 , REG_DT
+			   )
+		SELECT A.CODE_TYL
+			 , A.CODE_TYS
+			 , IFNULL(UPPER(#{code}), '')
+			 , A.CODE_TYL_NM
+			 , A.CODE_TYS_NM
+			 , IFNULL(#{codeNm}, '')
+			 , IFNULL(#{codeNm}, '')
+			 , #{codeOrdr}
+			 , #{regEmpNo}
+			 , NOW()
+		  FROM (SELECT CODE_TYL
+					 , CODE_TYS
+					 , CODE_TYL_NM
+					 , CODE_TYS_NM
+				  FROM HEALTHCARE.CMMN_CODE
+				 WHERE CODE_TYL = #{codeTyl}
+				   AND CODE_TYS = IFNULL(#{codeTys}, '')
+				   AND DEL_YN = 'N'
+				 GROUP BY CODE_TYL, CODE_TYS) A
+	</insert>
+	
+	<!-- 공통코드 목록 논리 삭제 -->
+	<update id="updateDelYCodeManageList">
+		UPDATE CMMN_CODE
+		   SET DEL_YN = 'Y'
+			 , UPDT_EMPNO = #{regEmpNo}
+			 , UPDT_DT =  now(3)
+		 WHERE CODE_TYL = #{codeTyl}
+		   AND CODE_TYS = IFNULL(#{codeTys}, '')
+		   AND CODE = #{code}
+	</update>
+	
+	<!-- 공통코드 수정 -->
+	<update id="updateCodeManageModify">
+		UPDATE CMMN_CODE
+		   SET CODE_NM = IFNULL(#{codeNm}, '')
+			 , CODE_DC = IFNULL(#{codeNm}, '')
+			 , UPDT_EMPNO = #{regEmpNo}
+			 , UPDT_DT =  now(3)
+		 WHERE CODE_TYL = #{codeTyl}
+		   AND CODE_TYS = IFNULL(#{codeTys}, '')
+		   AND CODE = #{code}
+	</update>
+	
+	<!-- 공통코드 중복 COUNT 조회 -->
+	<select id="selectCodeManageDuplicateCount" parameterType="map" resultType="int">
+		SELECT COUNT(*) AS duplCnt
+		  FROM CMMN_CODE
+		 WHERE CODE_TYL = #{codeTyl}
+		   AND CODE_TYS = IFNULL(#{codeTys}, '')
+		   AND CODE = #{code}
+	</select>
+	 
+</mapper>

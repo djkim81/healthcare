@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="resveConfirmMapper">
+
+	<!-- 특정일 근무현황 조회 -->
+	<select id="selectWorkList" parameterType="map" resultType="hashmap">			
+		SELECT A.RESVE_NO,
+		    A.RESVE_DE,
+		    A.RESVE_TM,
+		    A.BLD_CODE,
+		    A.MSSR_EMPNO,
+		    A.BED_CODE,
+		    A.RESVE_EMPNO,
+		    A.WAIT_EMPNO,
+		    A.REG_DT,
+		    A.UPDT_DT,
+		    A.CANCL_YN,
+		    A.COMPT_YN,
+		    A.SUCCS_YN,
+			B.NCNM AS MSSR_NCNM,
+			B.SEXDSTN AS MSSR_SEXDSTN
+		FROM RESVE_STTUS A
+		INNER JOIN MASSEUR B
+		ON A.MSSR_EMPNO = B.EMPNO
+		WHERE A.RESVE_DE = #{resveDe}
+		AND A.BLD_CODE=#{bldCode}
+		AND A.CANCL_YN != 'Y'
+	</select>
+	
+	<!-- 완료처리 대상 예약조회 -->
+	<select id="selectConfirmTarget" parameterType="map" resultType="hashmap">
+		SELECT A.RESVE_NO,
+		    A.RESVE_DE,
+		    A.RESVE_TM,
+		    A.BLD_CODE,
+		    A.MSSR_EMPNO,
+		    A.BED_CODE,
+		    A.RESVE_EMPNO,
+		    A.WAIT_EMPNO,
+		    A.REG_DT,
+		    A.UPDT_DT,
+		    A.CANCL_YN,
+		    A.COMPT_YN,
+		    A.SUCCS_YN,
+			B.NCNM AS MSSR_NCNM,
+			B.SEXDSTN AS MSSR_SEXDSTN,
+			(SELECT CODE_NM FROM CMMN_CODE WHERE CODE_TYL='BED' AND CODE_TYS=A.BLD_CODE AND CODE = A.BED_CODE) AS BED_NM,
+			(SELECT HNAME FROM INF_PERSON_INFO_RCV WHERE EMPNO=#{resveEmpno}) AS RESVE_EMPNM
+		FROM RESVE_STTUS A
+		INNER JOIN MASSEUR B
+		ON A.MSSR_EMPNO = B.EMPNO
+		WHERE A.RESVE_NO = (
+			SELECT MIN(RESVE_NO)
+			FROM RESVE_STTUS
+			WHERE RESVE_DE = #{resveDe}
+			AND RESVE_EMPNO = #{resveEmpno}
+			AND BLD_CODE = #{bldCode}
+			AND CANCL_YN != 'Y'
+			<!-- AND COMPT_YN != 'Y' --> <!-- 완료건까지 조회하여, 이미완료했는지 예약자체가 없는지 구분 -->
+		)
+	</select>
+</mapper>

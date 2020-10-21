@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="resveBlacklistMapper">
+	
+	<!-- 블랙리스트 insert -->
+	<insert id="insertBlacklist" parameterType="int">		
+		<!-- 노쇼일 다음날부터 2주 -->
+		INSERT INTO RESVE_BLCLST (RESVE_NO, RESVE_EMPNO, START_DT, END_DT, REG_DT)
+		SELECT RESVE_NO, 
+			RESVE_EMPNO, 
+		    STR_TO_DATE(CONCAT(DATE_FORMAT(NOW(), '%Y%m%d'), '00000'), '%Y%m%d%H%i%s'),
+		    DATE_ADD(
+		    	DATE_ADD(STR_TO_DATE(CONCAT(DATE_FORMAT(NOW(), '%Y%m%d'), '00000'), '%Y%m%d%H%i%s'), INTERVAL #{weeks} WEEK),
+		    	INTERVAL -1 SECOND
+		    ), <!-- 예약일로부터 2주후 -1초(2주후 전일 23:59:59까지) -->
+		    NOW()
+		FROM RESVE_STTUS
+		WHERE RESVE_DE = DATE_FORMAT(SUBDATE(CURRENT_DATE, 1),'%Y%m%d')
+		AND CANCL_YN != 'Y'
+		AND COMPT_YN != 'Y'
+		AND SUCCS_YN != 'Y'
+		AND RESVE_EMPNO != '' 
+		AND RESVE_EMPNO IS NOT NULL 
+		
+		<!-- 노쇼일에 블랙리스트 등록하되, 마지막예약일 다음날부터 2주 -->
+		<!-- 
+		INSERT INTO RESVE_BLCLST (RESVE_NO, RESVE_EMPNO, START_DT, END_DT, REG_DT)
+		SELECT RESVE_NO, 			/* 예약번호 */
+			RESVE_EMPNO, 			/* 예약자사번 */
+			(
+				SELECT DATE_ADD(STR_TO_DATE(CONCAT(RESVE_DE, '00000'), '%Y%m%d%H%i%s'), INTERVAL 1 DAY)		/* 마지막 예약일 다음날부터 */
+				FROM RESVE_STTUS
+				WHERE RESVE_NO = (
+					SELECT MAX(RESVE_NO)
+					FROM RESVE_STTUS
+					WHERE RESVE_EMPNO = A.RESVE_EMPNO
+					AND CANCL_YN != 'Y'
+					AND COMPT_YN != 'Y'
+					AND SUCCS_YN != 'Y'
+				)	
+		    ) AS PANELTY_START,		/* 패널티 시작시각 */
+			DATE_ADD(
+				DATE_ADD((
+					SELECT DATE_ADD(STR_TO_DATE(CONCAT(RESVE_DE, '00000'), '%Y%m%d%H%i%s'), INTERVAL 1 DAY)	/* (마지막예약일 다음날) - (weeks주) - (1초) */
+					FROM RESVE_STTUS
+					WHERE RESVE_NO = (
+						SELECT MAX(RESVE_NO)
+						FROM RESVE_STTUS
+						WHERE RESVE_EMPNO = A.RESVE_EMPNO
+						AND CANCL_YN != 'Y'
+						AND COMPT_YN != 'Y'
+						AND SUCCS_YN != 'Y'
+					)
+		        ), INTERVAL #{weeks} WEEK),
+				INTERVAL -1 SECOND
+			) AS PANELTY_END,		/* 패널티 종료시각 */
+			NOW()					/* 등록일 */
+		FROM RESVE_STTUS A
+		WHERE RESVE_DE = DATE_FORMAT(SUBDATE(CURRENT_DATE, 1),'%Y%m%d')
+		AND CANCL_YN != 'Y'
+		AND COMPT_YN != 'Y'
+		AND SUCCS_YN != 'Y'
+		AND RESVE_EMPNO != '' 
+		AND RESVE_EMPNO IS NOT NULL
+		 -->
+	</insert>
+	
+	<!-- 사번으로 블랙리스트대상인지 확인 -->
+	<select id="selectBlacklistByEmpno" parameterType="map" resultType="hashmap">
+		SELECT A.RESVE_NO,
+			A.START_DT AS PANELTY_START_DT,
+			DATE_FORMAT(A.START_DT, '%Y-%m-%d') AS PANELTY_START_DT_STR,	
+			A.END_DT AS PANELTY_END_DT,
+			DATE_FORMAT(A.END_DT, '%Y-%m-%d') AS PANELTY_END_DT_STR,	    
+			B.RESVE_DE,
+		    DATE_FORMAT(B.RESVE_DE, '%Y-%m-%d') AS RESVE_DE_STR,    
+			B.RESVE_TM,
+		    DATE_FORMAT(DATE_ADD(A.END_DT, INTERVAL 1 SECOND), '%Y-%m-%d') AS RESTART_DT_STR,
+			B.BLD_CODE,
+			B.BED_CODE,
+		    (SELECT CODE_NM FROM CMMN_CODE WHERE CODE_TYL='RVT' AND CODE = B.RESVE_TM) AS RESVE_TM_STR,    
+		    (SELECT CODE_NM FROM CMMN_CODE WHERE CODE_TYL='BLD' AND CODE = B.BLD_CODE) AS BLD_NM,    
+		    (SELECT CODE_NM FROM CMMN_CODE WHERE CODE_TYL='BED' AND CODE_TYS= B.BLD_CODE AND CODE = B.BED_CODE) AS BED_NM,
+		    (SELECT HNAME FROM INF_PERSON_INFO_RCV WHERE EMPNO=#{empno}) AS EMPNM
+		FROM RESVE_BLCLST A
+		INNER JOIN RESVE_STTUS B
+		ON A.RESVE_NO = B.RESVE_NO
+		WHERE NO = (
+			SELECT MAX(NO)
+			FROM RESVE_BLCLST
+			WHERE STR_TO_DATE(#{resveDe}, '%Y%m%d') BETWEEN START_DT AND END_DT
+			AND RESVE_EMPNO = #{empno}
+		)
+	</select>
+	
+	
+</mapper>

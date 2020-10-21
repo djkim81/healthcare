@@ -1,0 +1,247 @@
+@charset "utf-8";
+/* *******************************************************
+ * filename : reset.css
+ * description : 태그초기화 CSS
+ * date : 2019-00-00
+******************************************************** */
+@font-face {
+    font-family: 'NotoSans';
+    font-style: normal;
+    font-weight: 100;
+    src: url(../font/NotoSans/notokr-thin.eot);
+    src: url(../font/NotoSans/notokr-thin.eot?#iefix) format('embedded-opentype'),
+    url(../font/NotoSans/notokr-thin.woff) format('woff'),
+    url(../font/NotoSans/notokr-thin.ttf) format('truetype'),
+    url(../font/NotoSans/notokr-thin.svg#notokr-thin) format('svg');
+}
+@font-face {
+    font-family: 'NotoSans';
+    font-style: normal;
+    font-weight: 300;
+    src: url(../font/NotoSans/notokr-light.eot);
+    src: url(../font/NotoSans/notokr-light.eot?#iefix) format('embedded-opentype'),
+    url(../font/NotoSans/notokr-light.woff) format('woff'),
+    url(../font/NotoSans/notokr-light.ttf) format('truetype'),
+    url(../font/NotoSans/notokr-light.svg#notokr-light) format('svg');
+}
+@font-face {
+    font-family: 'NotoSans';
+    font-style: normal;
+    font-weight: 500;
+    src: url(../font/NotoSans/notokr-regular.eot);
+    src: url(../font/NotoSans/notokr-regular.eot?#iefix) format('embedded-opentype'),
+    url(../font/NotoSans/notokr-regular.woff) format('woff'),
+    url(../font/NotoSans/notokr-regular.ttf) format('truetype'),
+    url(../font/NotoSans/notokr-regular.svg#notokr-regular) format('svg');
+}
+
+@font-face {
+    font-family: 'NotoSans';
+    font-style: normal;
+    font-weight: 700;
+    src: url(../font/NotoSans/notokr-medium.eot);
+    src: url(../font/NotoSans/notokr-medium.eot?#iefix) format('embedded-opentype'),
+    url(../font/NotoSans/notokr-medium.woff) format('woff'),
+    url(../font/NotoSans/notokr-medium.ttf) format('truetype'),
+    url(../font/NotoSans/notokr-medium.svg#notokr-medium) format('svg');
+}
+@font-face {
+    font-family: 'NotoSans';
+    font-style: normal;
+    font-weight: 900;
+    src: url(../font/NotoSans/notokr-bold.eot);
+    src: url(../font/NotoSans/notokr-bold.eot?#iefix) format('embedded-opentype'),
+    url(../font/NotoSans/notokr-bold.woff) format('woff'),
+    url(../font/NotoSans/notokr-bold.ttf) format('truetype'),
+    url(../font/NotoSans/notokr-bold.svg#notokr-bold) format('svg');
+}
+
+html {
+	overflow-y: auto;
+}
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed, 
+figure, figcaption, footer, header, hgroup, 
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+	margin:0;
+	padding:0;
+}
+/* HTML5 display-role reset for older browsers */
+article, aside, details, figcaption, figure, 
+footer, header, hgroup, menu, nav, section, summary {
+	display:block;
+}
+audio, canvas, video {
+    display:inline-block;
+}
+audio:not([controls]) {
+    display: none;
+    height: 0;
+}
+audio, canvas, img, video {
+	vertical-align:middle;
+}
+body {
+	/* line-height:1; */
+}
+ol, ul {
+	list-style:none;
+}
+blockquote, q {
+	quotes:none;
+}
+blockquote:before, blockquote:after,
+q:before, q:after {
+	content:"";
+	content:none;
+}
+table {
+	border-collapse:collapse;
+	border-spacing:0;
+}
+img, fieldset {
+	border:0;
+}
+input, select, textarea {
+	line-height:1.2;
+	vertical-align:middle;
+}
+body, table, th, td, input,
+textarea, button, select {
+	font-family:"NotoSans","맑은고딕","Malgun Gothic","돋움", Dotum, Arial, sans-serif;
+	letter-spacing:-.5px;
+	font-size:13px;
+	color:#666;
+}
+button, select {
+	text-transform:none;
+}
+button, input {
+	line-height:normal;
+}
+textarea {
+	resize:vertical;
+	overflow:auto;
+}
+address, caption, cite, code,
+dfn, em, var {
+	font-style:normal;
+	font-weight:normal;
+}
+label {
+	cursor:pointer;
+}
+/* For Screen Reader */
+legend {
+	display:none;
+	visibility:hidden;
+}
+/* For Screen Reader */
+caption {
+	display:none;
+	visibility:hidden;
+}
+hr {
+	display:block;
+	height:1px;
+	border:0;
+	border-top:1px solid #ccc;
+	margin:1em 0;
+	padding:0;
+}
+a {
+	color:#666;
+	text-decoration:none;
+	outline:none;
+}
+a:active, a:hover, a:focus {
+	text-decoration:none;
+}
+button{
+	margin:0px;
+	padding:0px;
+	cursor:pointer;
+	border:0px;
+	background:none;
+	outline:none;
+	vertical-align: middle;
+}
+
+input[type="text"],
+input[type="password"] {
+	border:1px solid #ddd;
+	height:28px;
+	padding:0 6px;
+	box-sizing:border-box;
+	width:150px;
+	vertical-align: middle;
+}
+select { 
+	border:1px solid #ddd;
+	height:28px;
+	box-sizing:border-box;
+	padding:2px;
+	vertical-align: middle;
+}
+textarea {
+	border:1px solid #ddd;
+	box-sizing:border-box;
+	padding:5px;
+	width:100%;
+	resize: none;
+}
+
+
+::-webkit-input-placeholder { /* Chrome/Opera/Safari */
+  color: #999;
+}
+::-moz-placeholder { /* Firefox 19+ */
+  color: #999;
+}
+:-ms-input-placeholder { /* IE 10+ */
+  color: #999;
+}
+:-moz-placeholder { /* Firefox 18- */
+  color: #999;
+}
+input[readonly], input[readonly="readonly"] { background:#f9f9f9; color:#999; }
+
+.t_center { text-align:center !important; }
+.t_left { text-align:left !important; }
+.t_right { text-align:right !important; }
+
+.wp100 { width:100% !important; }
+.w80 { width:80px !important; }
+
+.mt0 { margin-top:0 !important; }
+.mt5 { margin-top:5px !important; }
+.mt10 { margin-top:10px !important; }
+.mt15 { margin-top:15px !important; }
+.mt20 { margin-top:20px !important; }
+
+.pt0 { padding-top:0 !important; }
+
+.ml0 { margin-left:0 !important; }
+.ml5 { margin-left:5px !important; }
+.ml10 { margin-left:10px !important; }
+.ml15 { margin-left:15px !important; }
+.ml20 { margin-left:20px !important; }
+
+.mr0 { margin-right:0 !important; }
+.mr5 { margin-right:5px !important; }
+.mr10 { margin-right:10px !important; }
+.mr15 { margin-right:15px !important; }
+.mr20 { margin-right:20px !important; }
+
+.p0 { padding:0 !important; }
+.p5 { padding:5px !important; }
+.pl5 { padding-left:5px !important; }

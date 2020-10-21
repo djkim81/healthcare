@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="healthkeperMapper">
+
+
+	<!-- 페이징 처리를 위한 HEADER -->
+	<sql id="COMMON_PAGING_HEADER">
+		SELECT R1.* FROM (
+	</sql>
+	
+	
+	<!-- 페이징 처리를 위한 TAIL -->
+	<sql id="COMMON_PAGING_TAIL">
+		) R1
+		LIMIT #{rowPerPage, jdbcType=INTEGER} OFFSET #{startRow, jdbcType=INTEGER}
+	</sql>
+
+	
+	<!-- 헬스키퍼 리스트 조회 -->
+	<select id="selectHealthkeperList" parameterType="map" resultType="hashmap">
+		<include refid="COMMON_PAGING_HEADER"/>
+		SELECT 
+            A.EMPNO AS MSSR_EMPNO,
+			(SELECT CODE_NM FROM CMMN_CODE WHERE CODE = A.BLD_CODE) AS BLD_NM,
+    		A.NCNM AS MSSR_NCNM,
+    		A.MSSR_NAME AS MSSR_NAME,
+    		A.SEXDSTN AS MSSR_SEXDSTN,
+    		DATE_FORMAT(A.REG_DT, '%Y-%m-%d %H:%i') AS REG_DT,
+    		A.HFFC_YN AS HFFC_YN
+		FROM masseur A
+		WHERE 1=1
+			<if test='bldCode != null and bldCode != ""'>
+			AND BLD_CODE = #{bldCode}
+			</if>
+			<if test='hffc_yn != null and hffc_yn != ""'>
+			AND HFFC_YN = #{hffc_yn}
+			</if>
+		<include refid="COMMON_PAGING_TAIL"/>
+	</select>
+	
+	
+	<!-- 헬스키퍼 리스트 전체 ROW COUNT 값 조회 -->
+	<select id="selectHealthkeperListTotalCount" parameterType="map" resultType="int">
+		select count(*) from masseur
+		where 1=1
+		<if test='bldCode != null and bldCode != ""'>
+			AND BLD_CODE = #{bldCode}
+		</if>
+		<if test='hffc_yn != null and hffc_yn != ""'>
+			AND HFFC_YN = #{hffc_yn}
+		</if>
+	</select>
+	
+	<!-- 헬스키퍼 등록 -->
+     <insert id="insertHealthkeper" parameterType="map" >     
+       	INSERT INTO masseur (empno, ncnm, sexdstn, bld_code, hffc_yn, reg_empno, reg_dt, updt_empno, updt_dt, MSSR_NAME)
+		VALUES (#{Empno}, #{mssrNCName},#{sexdstn}, #{bldCode}, 'Y', #{regEmpNo}, now(), null, null,#{mssrName})				 
+     </insert>
+     
+     <!-- 헬스키퍼 Empno-M사번 COUNT 값 조회 -->
+	<select id="selectHealthkeperEmpnoTotalCount" parameterType="map" resultType="int">
+		select count(*) from masseur where empno like 'M%'
+	</select>
+	
+	<!-- 헬스키퍼 수정(재직여부) 등록 -->
+     <update id="updateHealthkeper" >     
+       	update masseur SET updt_empno=#{regEmpNo} , updt_dt=sysdate() , hffc_yn=#{hffc_yn}, ncnm=#{mssr_ncnm}  WHERE EMPNO=#{mssrEmpno}				 
+     </update>
+	
+</mapper>

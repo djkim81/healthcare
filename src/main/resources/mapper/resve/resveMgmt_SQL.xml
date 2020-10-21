@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="resveMgmtMapper">
+
+
+	<!-- 페이징 처리를 위한 HEADER -->
+	<sql id="COMMON_PAGING_HEADER">
+		SELECT R1.* FROM (
+	</sql>
+	
+	
+	<!-- 페이징 처리를 위한 TAIL -->
+	<sql id="COMMON_PAGING_TAIL">
+		) R1 ORDER BY RESVE_DE DESC, RESVE_TM DESC , BLD_CODE, BED_CODE 
+		LIMIT #{rowPerPage, jdbcType=INTEGER} OFFSET #{startRow, jdbcType=INTEGER}
+	</sql>
+
+
+	<!-- 예약리스트 조회 -->
+	<select id="selectResveMgmtList" parameterType="map" resultType="hashmap">
+		<include refid="COMMON_PAGING_HEADER"/>
+		SELECT *
+		FROM (
+			SELECT STS.*,
+				<!-- 공통코드 -->
+				(SELECT CODE_NM FROM CMMN_CODE WHERE CODE = STS.RESVE_TM) AS RESVE_TM_TXT,
+				(SELECT CODE_NM FROM CMMN_CODE WHERE CODE = STS.BLD_CODE) AS BLD_NM,
+				(SELECT CODE_NM FROM CMMN_CODE WHERE CODE = STS.BED_CODE AND CODE_TYS = STS.BLD_CODE) AS BED_NM,
+				<!-- 헬스키퍼 -->
+				(SELECT NCNM FROM MASSEUR WHERE EMPNO = STS.MSSR_EMPNO) AS MSSR_NCNM,
+				(SELECT SEXDSTN FROM MASSEUR WHERE EMPNO = STS.MSSR_EMPNO) AS MSSR_SEXDSTN,
+				<!-- 예약자 인사정보 -->
+				RESVE_PRSN.HNAME AS RESVE_EMPNM,
+		        RESVE_PRSN.DEPTNM AS RESVE_DEPTNM,		        
+		        RESVE_PRSN.HRS_AGREE AS RESVE_AGREE_YN,	
+		        <!-- 대기자 인사정보 -->			    
+			    WAIT_PRSN.HNAME AS WAIT_EMPNM,
+		        WAIT_PRSN.DEPTNM AS WAIT_DEPTNM,		        
+		        WAIT_PRSN.HRS_AGREE AS WAIT_AGREE_YN,	
+		        <!-- 신청일 -->
+			    (SELECT DATE_FORMAT(MAX(REG_DT), '%Y-%m-%d %H:%i') FROM RESVE_HIST WHERE RESVE_NO = STS.RESVE_NO AND TARGET_EMPNO = STS.RESVE_EMPNO AND STTUS_CODE='STS01') AS RESVE_DT,
+			    (SELECT DATE_FORMAT(MAX(REG_DT), '%Y-%m-%d %H:%i') FROM RESVE_HIST WHERE RESVE_NO = STS.RESVE_NO AND TARGET_EMPNO = STS.WAIT_EMPNO AND STTUS_CODE='STS03') AS WAIT_DT,
+			    <!-- 최종상태 -->
+			    HIST.LAST_STTUS_CODE,
+			    (SELECT CODE_NM FROM CMMN_CODE WHERE CODE_TYL = 'STS' AND CODE = HIST.LAST_STTUS_CODE ) AS LAST_STTUS_NM
+			FROM RESVE_STTUS STS
+			INNER JOIN (
+				SELECT T1.RESVE_NO, T1.STTUS_CODE AS LAST_STTUS_CODE
+				FROM RESVE_HIST T1
+				INNER JOIN (
+					SELECT RESVE_NO, MAX(REG_DT) AS REG_DT
+					FROM RESVE_HIST	
+					GROUP BY RESVE_NO
+				) T2
+				ON T1.RESVE_NO = T2.RESVE_NO
+				AND T1.REG_DT = T2.REG_DT		
+			) HIST
+		    ON STS.RESVE_NO = HIST.RESVE_NO
+		    LEFT JOIN INF_PERSON_INFO_RCV RESVE_PRSN
+		    ON STS.RESVE_EMPNO = RESVE_PRSN.EMPNO
+		    LEFT JOIN INF_PERSON_INFO_RCV WAIT_PRSN
+		    ON STS.WAIT_EMPNO = WAIT_PRSN.EMPNO 
+			WHERE 1=1
+			AND RESVE_DE BETWEEN #{fromDate} AND #{toDate}
+			<if test='bldCode != null and bldCode != ""'>
+			AND BLD_CODE = #{bldCode}
+			</if>
+			<if test='bedCode != null and bedCode != ""'>
+			AND BED_CODE = #{bedCode}
+			</if>
+			<if test='statusCode != null and statusCode != ""'>
+				<if test='statusCode == "STS01"'>
+					AND LAST_STTUS_CODE IN ('STS01', 'STS03', 'STS04')				
+				</if>
+				<if test='statusCode != "STS01"'>
+					AND LAST_STTUS_CODE = #{statusCode}
+				</if>
+			</if>
+			AND CANCL_YN != 'Y'			
+			AND ((RESVE_EMPNO IS NOT NULL AND RESVE_EMPNO != '') OR (WAIT_EMPNO IS NOT NULL AND WAIT_EMPNO != ''))			
+		) TBL
+		WHERE 1=1
+		<if test='empnm != null and empnm != ""'>
+		AND ( RESVE_EMPNM LIKE CONCAT('%', #{empnm}, '%') OR WAIT_EMPNM LIKE CONCAT('%', #{empnm}, '%'))
+		</if>
+		 
+		<include refid="COMMON_PAGING_TAIL"/>
+	</select>
+	
+	
+	<!-- 예약리스트 전체 ROW COUNT 값 조회 -->
+	<select id="selectResveMgmtListTotalCount" parameterType="map" resultType="int">
+		SELECT COUNT(*)
+		FROM (
+			SELECT STS.*,	
+				(SELECT HNAME FROM INF_PERSON_INFO_RCV WHERE EMPNO = STS.RESVE_EMPNO) AS RESVE_EMPNM,
+				(SELECT HNAME FROM INF_PERSON_INFO_RCV WHERE EMPNO = STS.WAIT_EMPNO) AS WAIT_EMPNM
+			FROM RESVE_STTUS STS
+			INNER JOIN (
+				SELECT T1.RESVE_NO, T1.STTUS_CODE AS LAST_STTUS_CODE
+				FROM RESVE_HIST T1
+				INNER JOIN (
+					SELECT RESVE_NO, MAX(REG_DT) AS REG_DT
+					FROM RESVE_HIST	
+					GROUP BY RESVE_NO
+				) T2
+				ON T1.RESVE_NO = T2.RESVE_NO
+				AND T1.REG_DT = T2.REG_DT		
+			) HIST
+		    ON STS.RESVE_NO = HIST.RESVE_NO
+			WHERE 1=1
+			AND RESVE_DE BETWEEN #{fromDate} AND #{toDate}
+			<if test='bldCode != null and bldCode != ""'>
+			AND BLD_CODE = #{bldCode}
+			</if>
+			<if test='bedCode != null and bedCode != ""'>
+			AND BED_CODE = #{bedCode}
+			</if>
+			<if test='statusCode != null and statusCode != ""'>
+				<if test='statusCode == "STS01"'>
+					AND LAST_STTUS_CODE IN ('STS01', 'STS03', 'STS04')				
+				</if>
+				<if test='statusCode != "STS01"'>
+					AND LAST_STTUS_CODE = #{statusCode}
+				</if>
+			</if>
+			AND CANCL_YN != 'Y'
+			AND ((RESVE_EMPNO IS NOT NULL AND RESVE_EMPNO != '') OR (WAIT_EMPNO IS NOT NULL AND WAIT_EMPNO != ''))			
+		) TBL
+		WHERE 1=1
+		<if test='empnm != null and empnm != ""'>
+		AND ( RESVE_EMPNM LIKE CONCAT('%', #{empnm}, '%') OR WAIT_EMPNM LIKE CONCAT('%', #{empnm}, '%'))
+		</if>
+	</select>
+	
+	<!-- 예약 단건 조회 -->
+	<select id="selectResveMgmtItem" parameterType="map" resultType="hashmap">
+		SELECT 
+			RESVE_NO,
+		    RESVE_DE,
+		    DATE_FORMAT(RESVE_DE, '%Y-%m-%d') AS RESVE_DE_TXT,
+		    RESVE_TM,
+		    BLD_CODE,
+		    MSSR_EMPNO,
+		    BED_CODE,
+		    RESVE_EMPNO,
+		    WAIT_EMPNO,
+		    REG_DT,
+		    UPDT_DT,
+		    CANCL_YN,
+		    COMPT_YN,
+		    SUCCS_YN,
+		    (SELECT CODE_NM FROM CMMN_CODE WHERE CODE = STS.RESVE_TM) AS RESVE_TM_TXT,
+			(SELECT CODE_NM FROM CMMN_CODE WHERE CODE = STS.BLD_CODE) AS BLD_NM,
+			(SELECT NCNM FROM MASSEUR WHERE EMPNO = STS.MSSR_EMPNO) AS MSSR_NCNM,
+			(SELECT SEXDSTN FROM MASSEUR WHERE EMPNO = STS.MSSR_EMPNO) AS MSSR_SEXDSTN,
+			(SELECT CODE_NM FROM CMMN_CODE WHERE CODE = STS.BED_CODE AND CODE_TYS = STS.BLD_CODE) AS BED_NM,
+			(SELECT HNAME FROM INF_PERSON_INFO_RCV WHERE EMPNO = STS.RESVE_EMPNO) AS RESVE_EMPNM,
+		    (SELECT DEPTNM FROM INF_PERSON_INFO_RCV WHERE EMPNO = STS.RESVE_EMPNO) AS RESVE_DEPTNM,
+		    (SELECT HNAME FROM INF_PERSON_INFO_RCV WHERE EMPNO = STS.WAIT_EMPNO) AS WAIT_EMPNM,
+		    (SELECT DEPTNM FROM INF_PERSON_INFO_RCV WHERE EMPNO = STS.WAIT_EMPNO) AS WAIT_DEPTNM,
+		    (SELECT DATE_FORMAT(MAX(REG_DT), '%m-%d %H:%i') FROM RESVE_HIST WHERE RESVE_NO = STS.RESVE_NO AND TARGET_EMPNO = STS.RESVE_EMPNO AND STTUS_CODE='STS01') AS RESVE_DT,
+		    (SELECT DATE_FORMAT(MAX(REG_DT), '%m-%d %H:%i') FROM RESVE_HIST WHERE RESVE_NO = STS.RESVE_NO AND TARGET_EMPNO = STS.WAIT_EMPNO AND STTUS_CODE='STS03') AS WAIT_DT		    
+		FROM RESVE_STTUS STS		
+		WHERE RESVE_NO = #{resveNo}		
+	</select>	
+	
+	<!-- 예약 상세현황 조회 -->
+	<select id="selectResveMgmtDetailList" parameterType="map" resultType="hashmap">		
+		SELECT RESVE_NO,
+			STTUS_CODE_NM,
+			DATE_FORMAT(T.REG_DT, '%Y-%m-%d %H:%i') AS REG_DT_STR,		    
+			CASE REG_EMPNO
+				WHEN 'WAITCNCL' THEN '시스템'
+				WHEN 'SYSTEM' THEN '시스템'
+				ELSE HNAME
+			END AS REG_EMPNM,
+			STTUS_CODE,
+			REG_EMPNO
+		FROM (
+			SELECT HIST.RESVE_NO,
+				STTUS_CODE,
+				(SELECT CODE_NM FROM CMMN_CODE WHERE CODE_TYL='STS' AND CODE=HIST.STTUS_CODE) AS STTUS_CODE_NM,
+				HIST.REG_EMPNO,
+				HIST.REG_DT,		
+				PRSN.HNAME
+			FROM RESVE_HIST HIST
+			LEFT JOIN inf_person_info_rcv PRSN
+			ON HIST.REG_EMPNO = PRSN.EMPNO
+			WHERE RESVE_NO = #{resveNo}
+			AND STTUS_CODE != 'STS00'	<!-- 근무입력 제외 -->
+		) T
+		ORDER BY REG_DT DESC
+	</select>
+	
+	<!-- 예약리스트 엑셀 조회 -->
+	<select id="selectResveMgmtListExcel" parameterType="map" resultType="hashmap">		
+		SELECT TBL.*
+		FROM (
+			SELECT STS.*,
+				DATE_FORMAT(RESVE_DE, '%Y-%m-%d') AS RESVE_DE_TXT,
+				<!-- 공통코드 -->
+				(SELECT CODE_NM FROM CMMN_CODE WHERE CODE = STS.RESVE_TM) AS RESVE_TM_TXT,
+				(SELECT CODE_NM FROM CMMN_CODE WHERE CODE = STS.BLD_CODE) AS BLD_NM,
+				(SELECT CODE_NM FROM CMMN_CODE WHERE CODE = STS.BED_CODE AND CODE_TYS = STS.BLD_CODE) AS BED_NM,				
+				<!-- 헬스키퍼 -->
+				(SELECT NCNM FROM MASSEUR WHERE EMPNO = STS.MSSR_EMPNO) AS MSSR_NCNM,
+				(SELECT SEXDSTN FROM MASSEUR WHERE EMPNO = STS.MSSR_EMPNO) AS MSSR_SEXDSTN,
+		        <!-- 예약자 인사정보 -->
+				RESVE_PRSN.HNAME AS RESVE_EMPNM,
+		        RESVE_PRSN.DEPTNM AS RESVE_DEPTNM,		        
+		        RESVE_PRSN.HRS_AGREE AS RESVE_AGREE_YN,	
+		        <!-- 대기자 인사정보 -->			    
+			    WAIT_PRSN.HNAME AS WAIT_EMPNM,
+		        WAIT_PRSN.DEPTNM AS WAIT_DEPTNM,		        
+		        WAIT_PRSN.HRS_AGREE AS WAIT_AGREE_YN,
+		        <!-- 최종상태 -->
+			    (SELECT DATE_FORMAT(MAX(REG_DT), '%Y-%m-%d %H:%i') FROM RESVE_HIST WHERE RESVE_NO = STS.RESVE_NO AND TARGET_EMPNO = STS.RESVE_EMPNO AND STTUS_CODE='STS01') AS RESVE_DT,
+			    (SELECT DATE_FORMAT(MAX(REG_DT), '%Y-%m-%d %H:%i') FROM RESVE_HIST WHERE RESVE_NO = STS.RESVE_NO AND TARGET_EMPNO = STS.WAIT_EMPNO AND STTUS_CODE='STS03') AS WAIT_DT,
+			    HIST.LAST_STTUS_CODE,
+			    CASE 
+			    	WHEN HIST.LAST_STTUS_CODE = 'STS03' 
+			    	THEN CONCAT(
+				    		(SELECT CODE_NM FROM CMMN_CODE WHERE CODE_TYL = 'STS' AND CODE = 'STS01'),
+				    		', ',
+				    		(SELECT CODE_NM FROM CMMN_CODE WHERE CODE_TYL = 'STS' AND CODE = 'STS03')
+				    	)	<!-- 대기중은 "예약완료, 대기중"으로 표시 -->
+				    WHEN HIST.LAST_STTUS_CODE = 'STS04'
+				    THEN (SELECT CODE_NM FROM CMMN_CODE WHERE CODE_TYL = 'STS' AND CODE = 'STS01')	<!-- 대기취소는 "예약완료"로 표시 -->
+			    	ELSE (SELECT CODE_NM FROM CMMN_CODE WHERE CODE_TYL = 'STS' AND CODE = HIST.LAST_STTUS_CODE)
+			    END AS LAST_STTUS_NM			    
+			FROM RESVE_STTUS STS
+			INNER JOIN (
+				SELECT T1.RESVE_NO, T1.STTUS_CODE AS LAST_STTUS_CODE
+				FROM RESVE_HIST T1
+				INNER JOIN (
+					SELECT RESVE_NO, MAX(REG_DT) AS REG_DT
+					FROM RESVE_HIST	
+					GROUP BY RESVE_NO
+				) T2
+				ON T1.RESVE_NO = T2.RESVE_NO
+				AND T1.REG_DT = T2.REG_DT		
+			) HIST
+		    ON STS.RESVE_NO = HIST.RESVE_NO
+		    LEFT JOIN INF_PERSON_INFO_RCV RESVE_PRSN
+		    ON STS.RESVE_EMPNO = RESVE_PRSN.EMPNO
+		    LEFT JOIN INF_PERSON_INFO_RCV WAIT_PRSN
+		    ON STS.WAIT_EMPNO = WAIT_PRSN.EMPNO 
+			WHERE 1=1
+			AND RESVE_DE BETWEEN #{fromDate} AND #{toDate}
+			<if test='bldCode != null and bldCode != ""'>
+			AND BLD_CODE = #{bldCode}
+			</if>
+			<if test='bedCode != null and bedCode != ""'>
+			AND BED_CODE = #{bedCode}
+			</if>
+			<if test='statusCode != null and statusCode != ""'>
+				<if test='statusCode == "STS01"'>
+					AND LAST_STTUS_CODE IN ('STS01', 'STS03', 'STS04')				
+				</if>
+				<if test='statusCode != "STS01"'>
+					AND LAST_STTUS_CODE = #{statusCode}
+				</if>
+			</if>
+			AND CANCL_YN != 'Y'			
+			AND ((RESVE_EMPNO IS NOT NULL AND RESVE_EMPNO != '') OR (WAIT_EMPNO IS NOT NULL AND WAIT_EMPNO != ''))			
+		) TBL
+		WHERE 1=1
+		<if test='empnm != null and empnm != ""'>
+		AND ( RESVE_EMPNM LIKE CONCAT('%', #{empnm}, '%') OR WAIT_EMPNM LIKE CONCAT('%', #{empnm}, '%'))
+		</if>
+		ORDER BY RESVE_DE DESC, RESVE_TM DESC , BLD_CODE, BED_CODE 	
+	</select>
+	
+</mapper>

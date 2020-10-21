@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="chargerMapper">
+
+
+
+	<sql id="COMMON_PAGING_HEADER">
+		SELECT @ROWNUM:= @ROWNUM +1 as NUM  ,R1.*, IFNULL(FOUND_ROWS(),0) as total_cnt FROM (
+	</sql>
+	
+	
+
+	<sql id="COMMON_PAGING_TAIL">
+		) R1 ,(SELECT @ROWNUM := #{startRow, jdbcType=INTEGER})TEMP
+		LIMIT #{rowPerPage, jdbcType=INTEGER} OFFSET #{startRow, jdbcType=INTEGER}
+	               
+	</sql>
+	
+	
+
+	<select id="getChargerList" parameterType="map" resultType="hashmap">
+		SELECT *
+		FROM MASSEUR
+		WHERE HFFC_YN = 'Y'
+		<if test='bldCode != null and bldCode != ""'>
+		AND BLD_CODE = #{bldCode}
+		</if>
+	</select>
+	
+	
+
+	<select id="selectChargerList" parameterType="map" resultType="hashmap">
+	  
+		<include refid="COMMON_PAGING_HEADER"/>
+			 SELECT A.EMPNO
+		      ,B.HNAME
+		      ,B.DEPTNM
+		      ,A.AUTH_CODE
+		      ,AUTH.CODE_NM AS AUTH_NAME
+		      ,A.BLD_CODE
+		      ,BLD.CODE_NM  AS BLD_NAME
+		FROM CHARGER A JOIN INF_PERSON_INFO_RCV B ON A.EMPNO = B.EMPNO
+		               JOIN CMMN_CODE AUTH ON A.AUTH_CODE = AUTH.CODE AND AUTH.CODE_TYL ='AUT'
+		               JOIN CMMN_CODE BLD ON A.BLD_CODE = BLD.CODE AND BLD.CODE_TYL ='BLD'
+			<if test='bldCode != null and bldCode != ""'>
+			 AND BLD_CODE = #{bldCode}
+			</if>
+			<if test='authCode != null and authCode != ""'>
+			    AND A.AUTH_CODE  = #{authCode}
+			</if>
+			
+			    GROUP BY  A.EMPNO  
+		<include refid="COMMON_PAGING_TAIL"/>
+		
+	</select>
+
+
+	<select id="selectChargerItem" parameterType="map" resultType="hashmap">
+      	SELECT A.EMPNO
+		      ,B.HNAME
+		      ,B.DEPTNM
+		      ,A.AUTH_CODE
+		      ,AUTH.CODE_NM AS AUTH_NAME
+		      ,A.BLD_CODE
+		      ,BLD.CODE_NM  AS BLD_NAME
+		FROM CHARGER A JOIN INF_PERSON_INFO_RCV B ON A.EMPNO = B.EMPNO
+		               JOIN CMMN_CODE AUTH ON A.AUTH_CODE = AUTH.CODE AND AUTH.CODE_TYL ='AUT'
+		               JOIN CMMN_CODE BLD ON A.BLD_CODE = BLD.CODE AND BLD.CODE_TYL ='BLD'                
+           WHERE A.EMPNO  =  #{chargerEmpno}
+			    
+	 </select>    
+	
+	<!-- 관리자사번 중복 체크  -->
+	<select id="selectEmpNoCheck" parameterType="map" resultType="int">
+	 SELECT IFNULL(COUNT(*),0) AS EmpNoCheck  FROM charger WHERE EMPNO  =  #{chargerEmpno}
+	</select>
+	 
+	<insert id="insertCharger"  parameterType="map" >     
+      INSERT INTO CHARGER ( EMPNO, BLD_CODE, AUTH_CODE, REG_EMPNO, REG_DT    )
+				  VALUES ( #{chargerEmpno}, #{bldCode}, #{authCode}, #{regEmpNo}, now())			 
+     </insert>
+     
+     <update id="updateCharger" parameterType="map" >   
+      UPDATE CHARGER  
+         SET BLD_CODE = #{bldCode}, 
+             AUTH_CODE  = #{authCode},
+             UPDT_EMPNO =  #{regEmpNo} ,
+             UPDT_DT = now()
+		WHERE EMPNO = #{chargerEmpno}
+     </update>
+	
+	<delete id="deleteCharger" parameterType="map" >   
+     DELETE FROM CHARGER WHERE EMPNO = #{chargerEmpno}
+     </delete>
+</mapper>

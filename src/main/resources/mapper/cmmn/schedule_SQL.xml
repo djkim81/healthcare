@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cmmnScheduleMapper">
+
+	<insert id="insertScheduleSend" parameterType="com.skt.hrs.cmmn.vo.ScheduleVo">
+		INSERT INTO OUTLOOK_SEND_HIST (
+			RESVE_EMPNO,RESVE_NO,RESVE_TM,BLD_CODE,SEND_YN,REG_DT
+		)
+		VALUES(
+			#{resveEmpno}, #{resveNo}, #{resveTm}, #{bldCode}, 'N', NOW()
+		)
+	</insert>
+	
+	<update id="updateScheduleCancel" parameterType="com.skt.hrs.cmmn.vo.ScheduleVo">
+		UPDATE OUTLOOK_SEND_HIST
+		SET
+			RESVE_CANCL = #{resveCancl}
+		   ,UPDT_DT = NOW()
+		WHERE 1=1
+		AND RESVE_NO = #{resveNo} 
+	</update>
+	
+	<select id="selectScheduleSendList" resultType="hashmap">
+		<![CDATA[
+			SELECT 
+				 A.NO
+				,A.RESVE_EMPNO
+				,A.RESVE_NO
+				,U.EMAIL
+				,R.RESVE_DE
+				,T.CODE_NM AS TIME
+				,L.CODE_NM AS LOCATION
+			FROM OUTLOOK_SEND_HIST A 
+			INNER JOIN INF_PERSON_INFO_RCV U ON A.RESVE_EMPNO=U.EMPNO
+			INNER JOIN RESVE_STTUS R ON A.RESVE_NO=R.RESVE_NO
+			INNER JOIN CMMN_CODE T ON A.RESVE_TM=T.CODE AND T.CODE_TYL='RVT' AND T.DEL_YN='N'
+			INNER JOIN CMMN_CODE L ON A.BLD_CODE=L.CODE AND L.CODE_TYL='BLD' AND L.DEL_YN='N'
+			WHERE 1=1
+			AND SEND_YN='N' AND SEND_CNT < 1
+		]]>
+	</select>
+	
+	<select id="selectScheduleCancelList" resultType="hashmap">
+		<![CDATA[		
+			SELECT 
+			 	 A.NO
+				,A.RESVE_EMPNO
+				,A.RESVE_NO
+				,A.O_ID
+				,A.O_CHANGEKEY
+			FROM OUTLOOK_SEND_HIST A 
+			WHERE 1=1
+			AND SEND_YN='Y' AND RESVE_CANCL='Y' AND CANCL_YN='N' AND CANCL_CNT < 1
+		]]>
+	</select>
+	
+	<update id="updateScheduleSendLog" parameterType="com.skt.hrs.cmmn.vo.ScheduleVo">
+		UPDATE OUTLOOK_SEND_HIST A
+			SET   
+				<choose>
+					<when test='sendRslt == "true"'>
+						 SEND_YN = 'Y'
+			    		,SEND_DT = NOW()
+			    		,O_ID = #{oId}
+			    		,O_CHANGEKEY = #{oChangekey}
+			    		,SEND_RSLT = #{sendRslt}
+			    		,UPDT_DT = NOW()
+					</when>
+					<otherwise>
+						SEND_RSLT = #{sendRslt}
+					   ,UPDT_DT = NOW()
+					   ,SEND_CNT = A.SEND_CNT +1
+					</otherwise>
+				</choose>
+			WHERE 1=1
+			AND NO = #{no}
+	</update>
+	
+	<update id="updateScheduleCancelLog" parameterType="com.skt.hrs.cmmn.vo.ScheduleVo">
+		UPDATE OUTLOOK_SEND_HIST A
+			SET   
+				<choose>
+					<when test='canclRslt == "true"'>
+						 CANCL_YN = 'Y'
+			    		,CANCL_DT = NOW()
+			    		,CANCL_RSLT = #{canclRslt}
+			    		,UPDT_DT = NOW()
+					</when>
+					<otherwise>
+						CANCL_RSLT = #{canclRslt}
+					   ,UPDT_DT = NOW()
+					   ,CANCL_CNT = A.CANCL_CNT +1
+					</otherwise>
+				</choose>
+			WHERE 1=1
+			AND NO = #{no}
+	</update>
+</mapper>

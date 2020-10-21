@@ -1,0 +1,43 @@
+<div class="pop-head">
+	<h2>급여공제 동의</h2>
+	<a href="javascript:exit();" class="close exit">닫기</a> 
+</div>
+<div class="pop-container st2">	
+	<!-- 팝업 컨텐츠 S -->
+
+	<div class="alert-message">
+		<h3 class="confirm">헬스케어 사용료(1회당 5,000원)를<br/>급여에서 공제하는 것에 동의합니다.</h3>
+		<p>※ 이번달 1일~말일까지 사용료(이용횟수×5,000원)<br/>다음달 급여에서 공제</p>
+	</div>	
+
+	<div class="pop-btn-area">
+		<button class="pop-btn" style="width:80px; padding:0 15px; margin-right:5px" onclick="agree()">동의함</button>
+		<button class="pop-btn gray exit" style="width:80px; padding:0 15px;" onclick="exit()">동의안함</button>
+	</div>
+
+	<!-- 팝업 컨텐츠 E -->						
+</div><!-- //pop-container -->
+<script>
+	function agree(){
+		$.ajax({
+			url: ROOT + '/user/agree',
+			type: 'POST',					
+			success : function(res){
+				if(res.item){					
+					//location.reload();
+					SESSION.AGREE = 'Y'
+					closeLayerPopup();
+				}else{
+					$.alert({text: getMessage('system.error')});
+				}
+			},
+			error : function(err) {
+				console.error(err)
+			}
+		});
+	}
+	
+	function exit(){
+		if(confirm('헬스케어 서비스를 종료하시겠습니까?')) window.open('about:blank','_self').close();
+	}
+</script>
